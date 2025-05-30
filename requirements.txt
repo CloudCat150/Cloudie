@@ -1,5 +1,15 @@
 discord.py
 yt-dlp
 nest_asyncio
+<<<<<<< HEAD
 requests==2.31.0
 PyNaCl
+=======
+pip install discord.py yt-dlp nest_asyncio requests==2.31.0 -q
+pip install pynacl -q
+pip install openai==0.28 -q
+pip install nest_asyncio -q
+pip install -U yt-dlp -q
+apt update -q
+apt install -y ffmpeg -q
+>>>>>>> 766444befae5e05a9ddb31aa2f030567361c16e1
