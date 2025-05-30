@@ -11,7 +11,7 @@ import os
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix='구름', intents=intents)
+bot = commands.Bot(command_prefix='구르', intents=intents)
 
 # FFMPEG 옵션
 FFMPEG_OPTIONS = {
@@ -74,7 +74,14 @@ async def skip(ctx):
         ctx.voice_client.stop()
         await ctx.send("다음곡으로냥!")
 
-@bot.command(name='이', aliases=['아'])
+@bot.command(name=':잘가')
+@commands.is_owner()
+async def leave(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("빠빠!")
+
+@bot.command(name='밍', aliases=['망'])
 async def play(ctx, *, search: str):
     global first_song
     if search.strip().lower() == "스킵":  # 만약 사용자가 '스킵'을 입력하면
@@ -100,7 +107,7 @@ async def play(ctx, *, search: str):
     async with ctx.typing():
         if first_song == True:
             embed = discord.Embed(
-                title="**구름이가 노래를 들려주겠다냥!** 🐾",
+                title="**구르밍이 노래를 들려주겠다냥!** 🐾",
                 color=discord.Color.from_rgb(170, 219, 255)
             )
             await ctx.send(embed=embed)  # Embed 메시지 전송
@@ -157,12 +164,6 @@ async def play_next(ctx):
         )
         await ctx.send(embed=embed)  # Embed 메시지 전송  # 대기열이 비어있을 때 메시지 전송
 
-
-@bot.command(name='아잘가')
-async def leave(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("빠빠!")
 
 @bot.event
 async def on_command_error(ctx, error):
