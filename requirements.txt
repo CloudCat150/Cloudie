@@ -1,10 +1,3 @@
+nest_asyncio
 discord.py
 yt-dlp
-nest_asyncio
-pip install discord.py yt-dlp nest_asyncio requests==2.31.0 -q
-pip install pynacl -q
-pip install openai==0.28 -q
-pip install nest_asyncio -q
-pip install -U yt-dlp -q
-apt update -q
-apt install -y ffmpeg -q
