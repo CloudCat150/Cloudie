@@ -61,6 +61,19 @@ async def on_ready():
 
 first_song = True
 
+@bot.command(name=':종료')
+@commands.is_owner()
+async def shutdown(ctx):
+    await ctx.send("다음에 보자냥ㅠㅠ")
+    await bot.close()
+
+@bot.command(name=':스킵')
+@commands.is_owner()
+async def skip(ctx):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("다음곡으로냥!")
+
 @bot.command(name='이', aliases=['아'])
 async def play(ctx, *, search: str):
     global first_song
@@ -144,15 +157,6 @@ async def play_next(ctx):
         )
         await ctx.send(embed=embed)  # Embed 메시지 전송  # 대기열이 비어있을 때 메시지 전송
 
-@bot.command(name='스킵')
-async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        embed = discord.Embed(
-            title="**다음곡으로냥!** 🐾",
-            color=discord.Color.from_rgb(170, 219, 255)
-        )
-        await ctx.send(embed=embed)  # Embed 메시지 전송
 
 @bot.command(name='아잘가')
 async def leave(ctx):
