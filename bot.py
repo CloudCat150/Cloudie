@@ -59,7 +59,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         if 'entries' in data:
-            data = data['entries'][0]
+            entries = data['entries']
+            if not entries:
+                raise ValueError("검색 결과가 없습니다.")  # 결과 없을 때 예외 발생
+            data = entries[0]
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
@@ -180,16 +183,18 @@ async def play(ctx, *, search: str):
 
 async def play_next(ctx):
     global first_song
-    if len(queue) > 0:
+    try:
         player = queue.pop(0)
-        ctx.voice_client.play(player, after=lambda e: bot.loop.create_task(play_next(ctx)))
-    else:
-        first_song=True
+    except IndexError:
+        first_song = True
         embed = discord.Embed(
             title="**재생 목록이 비어있어냥ㅠㅠ**",
             color=discord.Color.from_rgb(170, 219, 255)
         )
-        await ctx.send(embed=embed)  # Embed 메시지 전송  # 대기열이 비어있을 때 메시지 전송
+        await ctx.send(embed=embed)
+        return
+    ctx.voice_client.play(player, after=lambda e: bot.loop.create_task(play_next(ctx)))
+
 
 
 @bot.event
