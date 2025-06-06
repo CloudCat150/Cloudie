@@ -7,6 +7,7 @@ import discord
 if not discord.opus.is_loaded():
     try:
         discord.opus.load_opus('/usr/lib/libopus.so')  # 실제 위치로
+
     except Exception as e:
         print(f"⚠️ Opus 로딩 실패: {e}")
     else:
@@ -15,21 +16,7 @@ if not discord.opus.is_loaded():
 from discord.ext import commands
 import yt_dlp as youtube_dl
 import asyncio
-
-import logging
 import os
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("opus_finder")
-
-logger.info("🔍 시스템에서 libopus.so 관련 파일 경로 찾는 중...")
-
-for root, dirs, files in os.walk('/'):
-    for file in files:
-        if 'libopus.so' in file:
-            full_path = os.path.join(root, file)
-            logger.info(f"📂 찾음: {full_path}")
-
 
 # Intents 설정
 intents = discord.Intents.default()
