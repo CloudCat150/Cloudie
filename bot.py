@@ -6,7 +6,7 @@ import discord
 # Opus 로딩 시도
 if not discord.opus.is_loaded():
     try:
-        discord.opus.load_opus('/usr/lib/x86_64-linux-gnu/libopus.so.0')  # 실제 위치로
+        discord.opus.load_opus('/usr/lib/libopus.so')  # 실제 위치로
     except Exception as e:
         print(f"⚠️ Opus 로딩 실패: {e}")
     else:
