@@ -2,6 +2,16 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import discord
+
+# Opus 로딩 시도
+if not discord.opus.is_loaded():
+    try:
+        discord.opus.load_opus('libopus.so')
+    except Exception as e:
+        print(f"⚠️ Opus 로딩 실패: {e}")
+    else:
+        print("✅ Opus 라이브러리 로딩 성공!")
+
 from discord.ext import commands
 import yt_dlp as youtube_dl
 import asyncio
