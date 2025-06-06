@@ -91,6 +91,22 @@ async def leave(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
         await ctx.send("빠빠!")
+@bot.event
+async def on_voice_state_update(member, before, after):
+    # 봇 자신은 무시
+    if member.bot:
+        return
+
+    voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
+
+    # 봇이 음성 채널에 연결되어 있고, 사용자들이 모두 나갔는지 확인
+    if voice_client and voice_client.channel:
+        channel = voice_client.channel
+        # 사람(봇 제외)이 아무도 없으면 나가기
+        if len([m for m in channel.members if not m.bot]) == 0:
+            if voice_client.is_playing():
+                voice_client.stop()
+            await voice_client.disconnect()
 
 @bot.command(name='밍', aliases=['망'])
 async def play(ctx, *, search: str):
