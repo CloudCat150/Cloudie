@@ -17,6 +17,15 @@ import yt_dlp as youtube_dl
 import asyncio
 import os
 
+# Opus 관련 경로 탐색 로그 출력
+print("🔍 시스템 전체에서 libopus.so 관련 파일을 찾는 중...\n")
+
+for root, dirs, files in os.walk('/'):
+    for file in files:
+        if 'libopus.so' in file:
+            full_path = os.path.join(root, file)
+            print(f"📂 찾음: {full_path}")
+
 # Intents 설정
 intents = discord.Intents.default()
 intents.message_content = True
