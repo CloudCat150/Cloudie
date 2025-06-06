@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libopus0 \
     libopus-dev \
     ffmpeg \
+    lsof \
     && rm -rf /var/lib/apt/lists/*
 
 # libopus.so 링크 생성 (discord.opus.load_opus('libopus.so') 호출 시 찾을 수 있도록)
@@ -19,11 +20,15 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+find / -name "libopus.so*"
+
 # 봇 코드 복사
 COPY . .
 
 # libopus.so를 올바로 찾도록 LD_LIBRARY_PATH 설정
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
+
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libopus.so.0
 
 # 컨테이너 시작 시 봇 실행 (DISCORD_TOKEN은 외부에서 환경변수로 주입)
 CMD ["python", "bot.py"]
