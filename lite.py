@@ -2,6 +2,17 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import discord
+
+# Opus 로딩 시도
+if not discord.opus.is_loaded():
+    try:
+        discord.opus.load_opus('/usr/lib/libopus.so')  # 실제 위치로
+
+    except Exception as e:
+        print(f"⚠️ Opus 로딩 실패: {e}")
+    else:
+        print("✅ Opus 라이브러리 로딩 성공!")
+
 from discord.ext import commands
 import yt_dlp as youtube_dl
 import asyncio
@@ -11,7 +22,7 @@ import os
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix='구름', intents=intents)
+bot = commands.Bot(command_prefix='구르', intents=intents)
 
 # FFMPEG 옵션
 FFMPEG_OPTIONS = {
@@ -48,7 +59,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         if 'entries' in data:
-            data = data['entries'][0]
+            entries = data['entries']
+            if not entries:
+                raise ValueError("검색 결과가 없습니다.")  # 결과 없을 때 예외 발생
+            data = entries[0]
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
@@ -74,7 +88,30 @@ async def skip(ctx):
         ctx.voice_client.stop()
         await ctx.send("다음곡으로냥!")
 
-@bot.command(name='이', aliases=['아'])
+@bot.command(name=':잘가')
+@commands.is_owner()
+async def leave(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("빠빠!")
+@bot.event
+async def on_voice_state_update(member, before, after):
+    # 봇 자신은 무시
+    if member.bot:
+        return
+
+    voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
+
+    # 봇이 음성 채널에 연결되어 있고, 사용자들이 모두 나갔는지 확인
+    if voice_client and voice_client.channel:
+        channel = voice_client.channel
+        # 사람(봇 제외)이 아무도 없으면 나가기
+        if len([m for m in channel.members if not m.bot]) == 0:
+            if voice_client.is_playing():
+                voice_client.stop()
+            await voice_client.disconnect()
+
+@bot.command(name='밍', aliases=['망'])
 async def play(ctx, *, search: str):
     global first_song
     if search.strip().lower() == "스킵":  # 만약 사용자가 '스킵'을 입력하면
@@ -100,7 +137,7 @@ async def play(ctx, *, search: str):
     async with ctx.typing():
         if first_song == True:
             embed = discord.Embed(
-                title="**구름이가 노래를 들려주겠다냥!** 🐾",
+                title="**구르밍이 노래를 들려주겠다냥!** 🐾",
                 color=discord.Color.from_rgb(170, 219, 255)
             )
             await ctx.send(embed=embed)  # Embed 메시지 전송
@@ -146,23 +183,19 @@ async def play(ctx, *, search: str):
 
 async def play_next(ctx):
     global first_song
-    if len(queue) > 0:
+    try:
         player = queue.pop(0)
-        ctx.voice_client.play(player, after=lambda e: bot.loop.create_task(play_next(ctx)))
-    else:
-        first_song=True
+    except IndexError:
+        first_song = True
         embed = discord.Embed(
             title="**재생 목록이 비어있어냥ㅠㅠ**",
             color=discord.Color.from_rgb(170, 219, 255)
         )
-        await ctx.send(embed=embed)  # Embed 메시지 전송  # 대기열이 비어있을 때 메시지 전송
+        await ctx.send(embed=embed)
+        return
+    ctx.voice_client.play(player, after=lambda e: bot.loop.create_task(play_next(ctx)))
 
 
-@bot.command(name='아잘가')
-async def leave(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("빠빠!")
 
 @bot.event
 async def on_command_error(ctx, error):
