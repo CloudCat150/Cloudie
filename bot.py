@@ -1,3 +1,6 @@
+# colab에서 pip 설치
+#!pip install discord.py yt-dlp nest_asyncio requests==2.31.0 PyNaCl
+
 import nest_asyncio
 nest_asyncio.apply()
 
@@ -168,9 +171,4 @@ async def leave(ctx):
 async def on_command_error(ctx, error):
     await ctx.send(f'오류! 오류다냥! {str(error)}')
 
-if __name__ == "__main__":
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    if not TOKEN:
-        print("환경변수 DISCORD_TOKEN이 설정되지 않았습니다!")
-    else:
-        bot.run(TOKEN)
+bot.run(os.getenv("DISCORD_TOKEN"))
