@@ -1,5 +1,5 @@
 discord.py
 yt-dlp
-nest_asyncio
-requests==2.31.0
 PyNaCl
+nest_asyncio
+davey
