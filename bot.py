@@ -7,9 +7,9 @@ from discord.ext import commands
 import yt_dlp
 import asyncio
 import nest_asyncio
-import logging  # 💡 로깅 모듈 추가
+import logging  # 💡 로깅 기능 추가
 
-# 코랩 환경 비동기 충돌 방지
+# 💡 코랩 환경에서의 비동기 충돌 방지
 nest_asyncio.apply()
 
 intents = discord.Intents.default()
@@ -18,9 +18,9 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix='구름', intents=intents)
 
 # ==========================================
-# 🛑 코랩 로그 중복 출력 방지 및 초기화 로직
+# � 로그 초기화 및 설정
 # ==========================================
-# 이전에 누적된 로그 핸들러(출력기)들을 전부 깨끗하게 비웁니다.
+# 📝 이전에 누적된 로그 핸들러를 정리합니다
 root_logger = logging.getLogger()
 while root_logger.handlers:
     root_logger.removeHandler(root_logger.handlers[0])
@@ -29,10 +29,13 @@ discord_logger = logging.getLogger('discord')
 while discord_logger.handlers:
     discord_logger.removeHandler(discord_logger.handlers[0])
 
-# 디스코드 기본 로그 레벨을 INFO로 깔끔하게 한 번만 설정
+# 💡 디스코드 로그 레벨을 INFO로 설정 (한 번만)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 # ==========================================
 
+# ==========================================
+# 📌 상태 관리
+# ==========================================
 states = {}
 
 def get_state(guild_id):
@@ -62,16 +65,19 @@ ffmpeg_options = {
 
 ytdl = yt_dlp.YoutubeDL(yt_dlp_options)
 
-# ☁️ 구름이 전용 시그니처 색상 (하늘색)
+# ==========================================
+# 📌 색상 설정
+# ==========================================
+# 💡 구름이 봇 전용 색상 (하늘색)
 GUROOM_COLOR = discord.Color.from_rgb(170, 219, 255)
 
 
 # ==========================================
-# 🛠️ 헬퍼 함수: 데이터 파싱 및 파워링크 임베드 생성
+# � 헬퍼 함수 (데이터 파싱 및 임베드 생성)
 # ==========================================
 
 def parse_track_info(data):
-    """yt_dlp 데이터로부터 제목, 썸네일, 재생시간, 업로더를 정리하는 함수"""
+    """yt_dlp 데이터로부터 트랙 정보 추출"""
     if 'entries' in data and len(data['entries']) > 0:
         track = data['entries'][0]
     else:
@@ -93,7 +99,7 @@ def parse_track_info(data):
     }
 
 def create_guroom_embed(track, title_prefix="", queue_list=None):
-    """불편한 타이틀 링크 색상을 없애고, 줄바꿈 후 본문에 파워링크를 거는 최적화 임베드 생성기"""
+    """트랙 정보를 임베드 형식으로 변환"""
     embed_title = title_prefix if title_prefix else "🎶 노래 재생 정보냥! 🐾"
     embed_description = f"**[{track['title']}]({track['video_url']})**\n\n**{track['uploader']}** | `{track['duration_formatted']}`"
     
@@ -114,19 +120,20 @@ def create_guroom_embed(track, title_prefix="", queue_list=None):
 
 
 # ==========================================
-# 1. 코어 기능 함수 (오디오 재생 및 큐 진행)
+# 📌 코어 기능 (오디오 재생 및 큐 관리)
 # ==========================================
 
 async def play_audio(ctx, track):
+    """트랙을 재생"""
     state = get_state(ctx.guild.id)
     
-    # 1. 기본 오디오 소스 생성
+    # 1️⃣ FFmpeg 오디오 소스 생성
     source = discord.FFmpegPCMAudio(track['stream_url'], **ffmpeg_options)
     
-    # 2. 💡 소리 크기를 0.3배(30%)로 조절하는 트랜스포머 적용
+    # 2️⃣ 💡 볼륨을 30%로 조절
     volume_source = discord.PCMVolumeTransformer(source, volume=0.3)
     
-    # 3. 볼륨이 조절된 소스로 재생 시작
+    # 3️⃣ 볼륨 조절된 소스로 재생 시작
     ctx.voice_client.play(volume_source, after=lambda e: play_next(ctx))
     
     state['last_video_id'] = track['id']
@@ -139,11 +146,12 @@ def play_next(ctx):
     asyncio.run_coroutine_threadsafe(advance_queue(ctx), bot.loop)
 
 async def advance_queue(ctx):
+    """대기열에서 다음 곡을 진행"""
     state = get_state(ctx.guild.id)
     if state['is_switching'] or not ctx.voice_client:
         return
 
-    # 대기열에 다음 곡이 존재할 때
+    # 📝 대기열에 다음 곡이 있을 때
     if len(state['queue']) > 0:
         next_track = state['queue'].pop(0)
         await play_audio(ctx, next_track)
@@ -152,7 +160,7 @@ async def advance_queue(ctx):
         await ctx.send(embed=embed)
         return
 
-    # 대기열이 없고 자동 추천 모드일 때
+    # 📝 자동 추천 모드일 때
     if state['autoplay'] and state['last_video_id']:
         try:
             loop = asyncio.get_event_loop()
@@ -181,11 +189,11 @@ async def advance_queue(ctx):
 
 
 # ==========================================
-# 2. 명령어 분기별 핸들러(Handler) 함수들
+# 📌 명령어 핸들러
 # ==========================================
 
 async def handle_skip(ctx, state):
-    """구름아 스킵"""
+    """스킵 명령어 처리"""
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
         
@@ -196,7 +204,7 @@ async def handle_skip(ctx, state):
         await ctx.send("지금은 재생 중인 노래가 없다냥!")
 
 async def handle_stop_autoplay(ctx, state):
-    """구름아 추천중지"""
+    """자동 추천 중지 명령어 처리"""
     state['autoplay'] = False
     state['queue'].clear()
     state['played_ids'].clear()
@@ -208,6 +216,7 @@ async def handle_stop_autoplay(ctx, state):
         await ctx.send("구름이는 지금 통화방에 없다냥!")
 
 async def ensure_voice_connection(ctx):
+    """음성 채널 연결 확인 및 연결"""
     if not ctx.voice_client:
         if not ctx.author.voice:
             await ctx.send("어디있는거냥ㅠㅠ 먼저 음성 채널에 들어가달라냥!")
@@ -218,7 +227,7 @@ async def ensure_voice_connection(ctx):
     return True
 
 async def handle_autoplay_start(ctx, state, real_search):
-    """구름아 추천 [노래제목]"""
+    """자동 추천 재생 시작"""
     state['autoplay'] = True
     msg = await ctx.send(f"🔍 `{real_search}` 검색 및 알고리즘 추천 모드 준비 중이다냥...")
     
@@ -249,7 +258,7 @@ async def handle_autoplay_start(ctx, state, real_search):
         await msg.edit(content=f"❌ 에러가 발생했다냥: {str(e)}")
 
 async def handle_normal_play(ctx, state, search_text):
-    """구름아 [노래제목]"""
+    """일반 노래 검색 및 재생"""
     msg = await ctx.send(f"🔍 `{search_text}` 검색 중이다냥...")
     
     try:
@@ -278,11 +287,12 @@ async def handle_normal_play(ctx, state, search_text):
 
 
 # ==========================================
-# 3. 디스코드 이벤트 및 메인 명령어
+# 📌 이벤트 및 명령어
 # ==========================================
 
 @bot.event
 async def on_voice_state_update(member, before, after):
+    """음성 채널 상태 변경 감지"""
     if member.id == bot.user.id or before.channel is None:
         return
 
@@ -304,10 +314,12 @@ async def on_voice_state_update(member, before, after):
 
 @bot.event
 async def on_ready():
+    """봇 시작 시 실행"""
     print(f'✅ 구름이 로그인 성공: {bot.user.name}')
 
 @bot.command(name='아', aliases=['이'])
 async def play_router(ctx, *, search: str):
+    """메인 명령어 라우터"""
     search_text = search.strip()
     state = get_state(ctx.guild.id)
 
@@ -331,8 +343,9 @@ async def play_router(ctx, *, search: str):
 
 
 # ==========================================
-# 아래 따옴표 안에 봇 토큰을 입력하세요.
+# 📌 봇 설정 및 실행
 # ==========================================
+# 📝 아래에 봇 토큰을 입력하세요
 BOT_TOKEN = "여기에_구름이_봇_토큰을_넣으세요"
 
 bot.run(BOT_TOKEN)
