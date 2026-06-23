@@ -68,6 +68,12 @@ ytdl = yt_dlp.YoutubeDL(yt_dlp_options)
 # 💡 구름이 봇 전용 색상 (하늘색)
 GUROOM_COLOR = discord.Color.from_rgb(170, 219, 255)
 
+SKIP_COMMANDS = {
+    '스킵', '다음', '넘기기', '다음곡', '다음노래', '다음곡재생', '다음노래재생'
+}
+CLEAR_COMMANDS = {'청소'}
+HELP_COMMANDS = {'핼프', '헬프', 'help', '도움'}
+
 
 # ==========================================
 # � 헬퍼 함수 (데이터 파싱 및 임베드 생성)
@@ -191,6 +197,57 @@ async def handle_skip(ctx, state):
             await ctx.send(embed=embed)
     else:
         await ctx.send("지금은 재생 중인 노래가 없다냥!")
+
+async def handle_clear_queue(ctx, state):
+    """대기열 전체를 비웁니다"""
+    if state['queue']:
+        state['queue'].clear()
+        embed = discord.Embed(
+            title="🧹 재생 목록을 비웠다냥!",
+            description="대기열을 모두 정리했어! 현재 재생 중인 곡은 계속된다냥.",
+            color=GUROOM_COLOR
+        )
+    else:
+        embed = discord.Embed(
+            title="ℹ️ 이미 재생 목록이 비어있다냥!",
+            description="추가할 곡을 불러와줘!",
+            color=GUROOM_COLOR
+        )
+    await ctx.send(embed=embed)
+
+async def handle_help(ctx):
+    """명령어 사용법 목록을 임베드로 출력합니다"""
+    embed = discord.Embed(
+        title="📘 구름이 명령어 도움말",
+        description="아래 명령어로 구름이를 부를 수 있다냥!",
+        color=GUROOM_COLOR
+    )
+    embed.add_field(
+        name="노래 재생",
+        value="`구름아 <곡 제목>`\n검색 후 재생하거나 대기열에 추가한다냥.",
+        inline=False
+    )
+    embed.add_field(
+        name="대기열 스킵",
+        value="`구름아 스킵`, `구름아 다음`, `구름아 넘기기`, `구름아 다음곡`",
+        inline=False
+    )
+    embed.add_field(
+        name="재생 목록 비우기",
+        value="`구름아 청소`\n대기열을 모두 정리한다냥.",
+        inline=False
+    )
+    embed.add_field(
+        name="재생 목록 일괄 추가",
+        value="`구름아 리스트 ...` 또는 `true` 단위로 곡을 나누어 입력한다냥.",
+        inline=False
+    )
+    embed.add_field(
+        name="도움말",
+        value="`구름아 핼프`\n현재 명령어 목록을 확인한다냥.",
+        inline=False
+    )
+    await ctx.send(embed=embed)
 
 async def handle_bulk_play(ctx, state, bulk_text):
     """true 단위 텍스트를 곡으로 검색하고 재생 목록에 추가"""
@@ -321,15 +378,30 @@ async def play_router(ctx, *, search: str):
     search_text = search.strip()
     state = get_state(ctx.guild.id)
 
-    if search_text == "스킵" or search_text == "다음" or search_text == "넘기기" or search_text == "다음곡" or search_text == "다음노래" or search_text == "다음곡재생" or search_text == "다음노래재생":
+    if search_text in SKIP_COMMANDS:
         await handle_skip(ctx, state)
         return
 
-    if 'true' in search_text.lower() or search_text.startswith('리스트'):
+    if search_text in CLEAR_COMMANDS:
+        await handle_clear_queue(ctx, state)
+        return
+
+    if search_text in HELP_COMMANDS:
+        await handle_help(ctx)
+        return
+
+    if 'true' in search_text.lower() or search_text.lower().startswith('리스트'):
         is_connected = await ensure_voice_connection(ctx)
         if not is_connected:
             return
-        await handle_bulk_play(ctx, state, search_text)
+
+        # '리스트' 접두어가 함께 전달되는 경우가 있어
+        # 실제 곡 텍스트만 전달되도록 접두어를 제거합니다.
+        bulk_text = search_text
+        if search_text.lower().startswith('리스트'):
+            bulk_text = re.sub(r'^\s*리스트[:：\-\s]*', '', search_text, flags=re.I)
+
+        await handle_bulk_play(ctx, state, bulk_text)
         return
 
     is_connected = await ensure_voice_connection(ctx)
