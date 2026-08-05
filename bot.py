@@ -262,46 +262,73 @@ async def handle_bulk_play(ctx, state, bulk_text):
         await ctx.send("❌ 검색할 곡 제목을 찾을 수 없다냥...")
         return
 
-    msg = await ctx.send("🔍 재생 목록을 검색 중이다냥... 잠시만 기다려달라냥!")
+    msg = await ctx.send("🔍 재생목록을 검색 중이다냥... 잠시만 기다려달라냥!")
     loop = asyncio.get_event_loop()
-    added_tracks = []
+    
+    # 1️⃣ 첫 곡만 먼저 빠르게 검색 및 재생
     first_track = None
-
-    for query in queries:
-        try:
-            search_data = await loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch:{query}", download=False))
-            if not search_data or not search_data.get('entries'):
-                continue
-
+    first_query_index = 0
+    
+    try:
+        search_data = await loop.run_in_executor(None, lambda: ytdl.extract_info(f"ytsearch:{queries[0]}", download=False))
+        if search_data and search_data.get('entries'):
             video_id = search_data['entries'][0]['id']
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False))
-            track = parse_track_info(data)
-
-            if not first_track and not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not state['queue']:
-                first_track = track
+            first_track = parse_track_info(data)
+            
+            # 대기열이 비어있고 재생 중이 아니면 바로 재생
+            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not state['queue']:
+                await play_audio(ctx, first_track)
+                embed_title = "**구름이가 재생을 시작했냥!** 🐾"
             else:
-                state['queue'].append(track)
-
-            added_tracks.append(track)
-
-        except Exception as e:
-            await ctx.send(f"❌ '{query}' 검색 중 에러가 발생했다냥: {str(e)}")
-
-    if not added_tracks:
-        await msg.edit(content="❌ 재생 목록의 곡을 하나도 찾지 못했다냥...")
+                state['queue'].append(first_track)
+                embed_title = "✅ 대기열에 추가했냥! 🐾"
+    except Exception as e:
+        await msg.edit(content=f"❌ 첫 곡 검색 중 에러가 발생했다냥: {str(e)}")
         return
-
-    if first_track:
-        await play_audio(ctx, first_track)
-        embed_title = "**구름이가 재생을 시작했냥!** 🐾"
-    else:
-        embed_title = "✅ 재생 목록을 대기열에 추가했냥! 🐾"
-
-    embed = create_guroom_embed(added_tracks[0] if first_track else state['queue'][0], title_prefix=embed_title, queue_list=state['queue'])
-    queue_names = [track['title'] for track in added_tracks]
-    embed.add_field(name="추가된 곡", value="\n".join(queue_names[:10]), inline=False)
-
+    
+    if not first_track:
+        await msg.edit(content="❌ 첫 곡을 찾을 수 없다냥...")
+        return
+    
+    # 2️⃣ 첫 곡 정보로 임베드 생성 및 전송
+    embed = create_guroom_embed(first_track, title_prefix=embed_title, queue_list=state['queue'])
+    embed.add_field(name="추가 중인 곡", value=f"⏳ {len(queries) - 1}개 곡 검색 중...", inline=False)
     await msg.edit(content=None, embed=embed)
+    
+    # 3️⃣ 나머지 곡들을 비동기로 검색하여 대기열에 추가
+    added_tracks = [first_track]
+    
+    async def fetch_remaining_tracks():
+        """나머지 곡들을 비동기로 검색"""
+        try:
+            for i, query in enumerate(queries[1:], start=1):
+                try:
+                    search_data = await loop.run_in_executor(None, lambda q=query: ytdl.extract_info(f"ytsearch:{q}", download=False))
+                    if search_data and search_data.get('entries'):
+                        video_id = search_data['entries'][0]['id']
+                        data = await loop.run_in_executor(None, lambda v=video_id: ytdl.extract_info(f"https://www.youtube.com/watch?v={v}", download=False))
+                        track = parse_track_info(data)
+                        state['queue'].append(track)
+                        added_tracks.append(track)
+                except Exception as e:
+                    print(f"⚠️ '{query}' 검색 중 에러: {str(e)}")
+                    continue
+            
+            # 모든 곡이 추가된 후 최종 임베드 업데이트
+            if len(added_tracks) > 1:
+                final_embed = create_guroom_embed(first_track, title_prefix=embed_title, queue_list=state['queue'])
+                queue_names = [track['title'] for track in added_tracks]
+                final_embed.add_field(name="추가된 곡", value="\n".join(queue_names[:10]), inline=False)
+                try:
+                    await msg.edit(embed=final_embed)
+                except:
+                    pass  # 메시지가 삭제되었을 수 있으므로 무시
+        except Exception as e:
+            print(f"⚠️ 나머지 곡 검색 중 에러: {str(e)}")
+    
+    # 비동기 작업을 백그라운드에서 실행
+    asyncio.create_task(fetch_remaining_tracks())
 
 async def ensure_voice_connection(ctx):
     """음성 채널 연결 확인 및 연결"""
@@ -395,13 +422,7 @@ async def play_router(ctx, *, search: str):
         if not is_connected:
             return
 
-        # '리스트' 접두어가 함께 전달되는 경우가 있어
-        # 실제 곡 텍스트만 전달되도록 접두어를 제거합니다.
-        bulk_text = search_text
-        if search_text.lower().startswith('리스트'):
-            bulk_text = re.sub(r'^\s*리스트[:：\-\s]*', '', search_text, flags=re.I)
-
-        await handle_bulk_play(ctx, state, bulk_text)
+        await handle_bulk_play(ctx, state, search_text)
         return
 
     is_connected = await ensure_voice_connection(ctx)
