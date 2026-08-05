@@ -20,4 +20,4 @@ COPY . .
 
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
 
-CMD ["python", "bot.py"]
+CMD ["python", "run.py"]
